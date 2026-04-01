@@ -132,6 +132,25 @@ const Settings = () => {
             </div>
           </section>
 
+          {/* Song Request */}
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(52, 199, 89, 0.9)' }}>
+                <Music className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase">Community</h2>
+            </div>
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <button
+                className="w-full px-4 py-3 flex items-center justify-between active:bg-white/5"
+                onClick={() => navigate('/request-song')}
+              >
+                <span className="text-sm">Request a Song</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          </section>
+
           {/* Storage */}
           <section>
             <div className="flex items-center gap-2 mb-2 px-1">
