@@ -196,6 +196,7 @@ const Home = () => {
             
             <div className="flex items-center gap-1.5">
               {[
+                { icon: Send, action: () => navigate('/request-song') },
                 { icon: ListMusic, action: () => setShowQueue(true) },
                 { icon: Sliders, action: () => setShowEqualizer(true) },
                 { icon: Lock, action: () => setShowLockScreen(true) },
