@@ -126,6 +126,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<AdminDashboard />} />
             <Route path="upload" element={<UploadMusic />} />
+            <Route path="song-requests" element={<AdminSongRequests />} />
             <Route path="songs" element={<ManageSongs />} />
             <Route path="artists" element={<ManageArtists />} />
             <Route path="albums" element={<ManageAlbums />} />
