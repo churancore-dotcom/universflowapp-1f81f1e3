@@ -282,15 +282,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     audioRef.current.volume = volume;
     audioRef.current.currentTime = 0;
     
+    // CRITICAL: Bind to audio engine BEFORE playing so createMediaElementSource
+    // doesn't hijack output mid-playback and cause audio stops
+    audioEngine.bind(audioRef.current).catch(() => {});
+    
     audioRef.current.load();
     const playPromise = audioRef.current.play();
     if (playPromise) {
-      playPromise.then(() => {
-        // Auto-bind to audio engine so EQ/visualizer work immediately
-        if (audioRef.current) {
-          audioEngine.bind(audioRef.current).catch(() => {});
-        }
-      }).catch(err => {
+      playPromise.catch(err => {
         console.warn('Playback failed:', err.message);
         setIsPlaying(false);
         wasPlayingBeforeHidden.current = false;
