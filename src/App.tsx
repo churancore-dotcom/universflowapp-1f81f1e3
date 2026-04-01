@@ -33,6 +33,7 @@ const Support = lazy(() => import("./pages/Support"));
 import OfflinePlayerShell from "./components/OfflinePlayerShell";
 const Offline = lazy(() => import("./pages/Offline"));
 const WidgetPreview = lazy(() => import("./pages/WidgetPreview"));
+const RequestSong = lazy(() => import("./pages/RequestSong"));
 
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
 const PrerollAd = lazy(() => import("./components/ads/PrerollAd"));
