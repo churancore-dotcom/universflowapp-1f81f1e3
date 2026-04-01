@@ -4,8 +4,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, 
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
-import DownloadButton from './DownloadButton';
-import SaveToDeviceButton from './SaveToDeviceButton';
 import LikeButton from './LikeButton';
 import SocialShareModal from './SocialShareModal';
 import AddToPlaylistModal from './AddToPlaylistModal';
