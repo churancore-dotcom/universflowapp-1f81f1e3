@@ -1,6 +1,6 @@
 import { useState, memo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Ellipsis } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
@@ -10,6 +10,7 @@ import SocialShareModal from './SocialShareModal';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import SongReactions from './SongReactions';
+import EqualizerModal from './EqualizerModal';
 import { supabase } from '@/integrations/supabase/client';
 import type { Song } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
@@ -79,6 +80,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+  const [showEqualizer, setShowEqualizer] = useState(false);
   const [direction, setDirection] = useState(0);
   const prevSongIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
@@ -177,7 +179,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 className="w-10 h-10 flex items-center justify-center -mr-2 active:scale-90 transition-transform" 
                 onClick={() => { triggerHaptic('impactLight'); setShowPlaylistModal(true); }}
               >
-                <Ellipsis className="w-5 h-5 text-white/80" />
+                <ListMusic className="w-5 h-5 text-white/80" />
               </button>
             </div>
 
@@ -362,6 +364,12 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
+                  onClick={() => { triggerHaptic('selection'); setShowEqualizer(true); }}
+                >
+                  <Sliders className="w-[18px] h-[18px] text-white/60" />
+                </button>
+                <button 
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={() => { triggerHaptic('selection'); setShowPlaylistModal(true); }}
                 >
                   <ListMusic className="w-[18px] h-[18px] text-white/60" />
@@ -378,6 +386,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
       {showShareModal && <SocialShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} song={currentSong} />}
       {showPlaylistModal && <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => setShowCreatePlaylist(true)} />}
       {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} onCreated={() => {}} />}
+      {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
     </>
   );
 });

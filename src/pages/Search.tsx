@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search as SearchIcon, Music, X, Tag, Sparkles, Headphones, Globe, Radio, Loader2 } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Tag, Sparkles, Headphones, Globe, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -16,7 +16,7 @@ import { SearchSkeleton } from '@/components/PageSkeletons';
 import { resolveIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import { toast } from 'sonner';
 
-const AUDIUS_BASE = 'https://audius-discovery-1.the-standard.io/v1';
+const AUDIUS_BASE = 'https://discoveryprovider.audius.co/v1';
 const APP_NAME = 'univers_flow_official';
 
 const genres = [
@@ -36,6 +36,24 @@ const moods = [
 ];
 
 type SearchSource = 'all' | 'library' | 'audius' | 'indexer';
+
+// ── Search history ──
+const SEARCH_HISTORY_KEY = 'uf_search_history';
+const MAX_HISTORY = 15;
+
+function getSearchHistory(): string[] {
+  try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function addToSearchHistory(term: string) {
+  const t = term.trim();
+  if (t.length < 2) return;
+  const history = getSearchHistory().filter(h => h.toLowerCase() !== t.toLowerCase());
+  history.unshift(t);
+  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+}
+function clearSearchHistory() {
+  localStorage.removeItem(SEARCH_HISTORY_KEY);
+}
 
 const mapSongRow = (s: any): Song => ({
   id: s.id,
@@ -60,6 +78,7 @@ const Search = () => {
   const [activeFilter, setActiveFilter] = useState<{ type: 'genre' | 'mood'; value: string } | null>(null);
   const [source, setSource] = useState<SearchSource>('all');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [searchHistory, setSearchHistory] = useState<string[]>(getSearchHistory());
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
 
@@ -94,6 +113,10 @@ const Search = () => {
       setSearching(true);
       setActiveFilter(null);
 
+      // Save to search history
+      addToSearchHistory(trimmedQuery);
+      setSearchHistory(getSearchHistory());
+
       const [libraryResponse, audiusResponse, indexedResponse] = await Promise.allSettled([
         searchSongs(trimmedQuery),
         searchAudius(trimmedQuery),
@@ -106,7 +129,7 @@ const Search = () => {
       setAudiusResults(audiusResponse.status === 'fulfilled' ? audiusResponse.value : []);
       setIndexedResults(indexedResponse.status === 'fulfilled' ? indexedResponse.value : []);
       setSearching(false);
-    }, 320);
+    }, 300);
 
     return () => {
       cancelled = true;
@@ -301,6 +324,38 @@ const Search = () => {
             {!query && !activeFilter && (
               <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+
+                {/* Search History */}
+                {searchHistory.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-sm font-bold flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-muted-foreground" /> Recent Searches
+                      </h2>
+                      <button
+                        onClick={() => { clearSearchHistory(); setSearchHistory([]); }}
+                        className="text-[11px] text-muted-foreground flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" /> Clear
+                      </button>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {searchHistory.map((term) => (
+                        <button
+                          key={term}
+                          onClick={() => setQuery(term)}
+                          className="px-3 py-1.5 rounded-full text-xs font-medium"
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '0.5px solid rgba(255,255,255,0.08)',
+                          }}
+                        >
+                          {term}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <h2 className="text-sm font-bold mb-2.5 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-accent" /> Moods
                 </h2>
