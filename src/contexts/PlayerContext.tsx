@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { supabase } from '@/integrations/supabase/client';
 import { resolveIndexedTrack } from '@/lib/musicIndexer';
+import { toast } from 'sonner';
 
 export interface Song {
   id: string;
@@ -78,6 +79,14 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   }
 
   audio.src = sourceUrl;
+};
+
+const buildStreamProxyUrl = (sourceUrl: string) => {
+  const projectUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!projectUrl || !sourceUrl.startsWith('http')) return sourceUrl;
+  if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return sourceUrl;
+
+  return `${projectUrl}/functions/v1/music-indexer?audio=${encodeURIComponent(sourceUrl)}`;
 };
 
 const isEqProcessingEnabled = () => {
@@ -373,7 +382,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     
     // Set source and play immediately
-    configureAudioElementSource(audioRef.current, audioUrl);
+    configureAudioElementSource(audioRef.current, buildStreamProxyUrl(audioUrl));
     audioRef.current.volume = volume;
     audioRef.current.currentTime = 0;
     
@@ -391,7 +400,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (nextIdx !== index && nextAudioRef.current) {
       const nextSong = songQueue[nextIdx];
       if (nextSong && isPlayableUrl(nextSong.audio_url)) {
-        configureAudioElementSource(nextAudioRef.current, nextSong.audio_url);
+        configureAudioElementSource(nextAudioRef.current, buildStreamProxyUrl(nextSong.audio_url));
         nextAudioRef.current.preload = 'auto';
         nextAudioRef.current.load();
       }
@@ -563,7 +572,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsPlaying(true);
     
     // Set audio source - use offline URL if available
-    configureAudioElementSource(audioRef.current, offlineUrl || song.audio_url);
+    const playbackUrl = offlineUrl || buildStreamProxyUrl(song.audio_url);
+    configureAudioElementSource(audioRef.current, playbackUrl);
     audioRef.current.volume = volume;
     audioRef.current.currentTime = 0;
 
@@ -574,6 +584,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       playPromise.catch(err => {
         console.warn('Playback failed:', err?.message);
         setIsPlaying(false);
+        toast.error('This song could not start — trying another source helps while the stream refreshes.');
       });
     }
 
