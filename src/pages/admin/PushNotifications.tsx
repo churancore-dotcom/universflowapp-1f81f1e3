@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Send, Users, Clock, Target, BarChart3, Plus, Trash2, RefreshCw, Smartphone, Link as LinkIcon } from 'lucide-react';
+import { Bell, Send, Users, Clock, Target, BarChart3, Plus, Trash2, RefreshCw, Smartphone, Link as LinkIcon, Search, X, UserCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-type Audience = 'all' | 'premium' | 'free';
+type Audience = 'all' | 'premium' | 'free' | 'specific';
 type NotifType = 'info' | 'success' | 'warning';
 type Channel = 'in_app' | 'push' | 'both';
 
@@ -40,7 +40,15 @@ const audienceLabels: Record<Audience, string> = {
   all: 'All Users',
   premium: 'Premium Only',
   free: 'Free Users',
+  specific: 'Specific User',
 };
+
+interface UserHit {
+  user_id: string;
+  email: string | null;
+  username: string | null;
+  avatar_url: string | null;
+}
 
 interface KPI { delivered: number; opened: number; clicked: number; }
 
