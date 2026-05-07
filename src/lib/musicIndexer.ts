@@ -150,8 +150,44 @@ export async function searchIndexedTracks(query: string, limit = 50): Promise<In
 // localStorage layer survives across reloads (TTL 30 minutes).
 const TOP_TRACKS_TTL = 30 * 60 * 1000;
 const TOP_TRACKS_LS_KEY = 'uf_top_tracks_v1';
-const topTracksMemCache = new Map<number, { data: IndexedTrack[]; expiresAt: number }>();
-let topTracksInflight = new Map<number, Promise<IndexedTrack[]>>();
+const topTracksMemCache = new Map<string, { data: IndexedTrack[]; expiresAt: number }>();
+let topTracksInflight = new Map<string, Promise<IndexedTrack[]>>();
+
+// Detect a 2-letter country code using browser language + timezone heuristics.
+// Cached after first compute. Falls back to '' (server uses global blend).
+let _detectedCountry: string | null = null;
+export function detectCountry(): string {
+  if (_detectedCountry !== null) return _detectedCountry;
+  let cc = '';
+  try {
+    // 1) Locale region (e.g. en-IN → IN)
+    const langs = [navigator.language, ...(navigator.languages || [])];
+    for (const lang of langs) {
+      const m = /-([A-Z]{2})\b/i.exec(lang || '');
+      if (m) { cc = m[1].toUpperCase(); break; }
+    }
+    // 2) Timezone heuristic
+    if (!cc) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const TZ_MAP: Record<string, string> = {
+        'Asia/Kolkata': 'IN', 'Asia/Calcutta': 'IN',
+        'Asia/Karachi': 'PK', 'Asia/Dhaka': 'BD',
+        'Asia/Tokyo': 'JP', 'Asia/Seoul': 'KR',
+        'Asia/Shanghai': 'CN', 'Asia/Singapore': 'SG',
+        'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA',
+        'Europe/London': 'GB', 'Europe/Paris': 'FR',
+        'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES',
+        'Europe/Moscow': 'RU',
+        'America/New_York': 'US', 'America/Los_Angeles': 'US', 'America/Chicago': 'US',
+        'America/Toronto': 'CA', 'America/Mexico_City': 'MX', 'America/Sao_Paulo': 'BR',
+        'Australia/Sydney': 'AU',
+      };
+      cc = TZ_MAP[tz] || '';
+    }
+  } catch { /* ignore */ }
+  _detectedCountry = cc;
+  return cc;
+}
 
 (function hydrateTopTracksCache() {
   try {
@@ -161,7 +197,7 @@ let topTracksInflight = new Map<number, Promise<IndexedTrack[]>>();
     const now = Date.now();
     Object.entries(parsed).forEach(([k, v]) => {
       if (v?.expiresAt > now && Array.isArray(v.data)) {
-        topTracksMemCache.set(Number(k), v);
+        topTracksMemCache.set(k, v);
       }
     });
   } catch { /* ignore */ }
@@ -170,36 +206,39 @@ let topTracksInflight = new Map<number, Promise<IndexedTrack[]>>();
 function persistTopTracksCache() {
   try {
     const obj: Record<string, { data: IndexedTrack[]; expiresAt: number }> = {};
-    topTracksMemCache.forEach((v, k) => { obj[String(k)] = v; });
+    topTracksMemCache.forEach((v, k) => { obj[k] = v; });
     localStorage.setItem(TOP_TRACKS_LS_KEY, JSON.stringify(obj));
   } catch { /* ignore quota */ }
 }
 
-export async function getTopIndexedTracks(limit = 30): Promise<IndexedTrack[]> {
-  const cached = topTracksMemCache.get(limit);
+export async function getTopIndexedTracks(limit = 30, country?: string): Promise<IndexedTrack[]> {
+  const cc = (country ?? detectCountry() ?? '').toUpperCase().slice(0, 2);
+  const key = `${limit}::${cc}`;
+  const cached = topTracksMemCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
   }
-  const inflight = topTracksInflight.get(limit);
+  const inflight = topTracksInflight.get(key);
   if (inflight) return inflight;
 
   const promise = (async () => {
     const data = await requestIndexer<IndexedTracksResponse>({
       action: 'top',
       limit,
+      country: cc || undefined,
     });
     const results = Array.isArray(data.results) ? data.results : [];
     if (results.length > 0) {
-      topTracksMemCache.set(limit, { data: results, expiresAt: Date.now() + TOP_TRACKS_TTL });
+      topTracksMemCache.set(key, { data: results, expiresAt: Date.now() + TOP_TRACKS_TTL });
       persistTopTracksCache();
     }
     return results;
   })();
-  topTracksInflight.set(limit, promise);
+  topTracksInflight.set(key, promise);
   try {
     return await promise;
   } finally {
-    topTracksInflight.delete(limit);
+    topTracksInflight.delete(key);
   }
 }
 

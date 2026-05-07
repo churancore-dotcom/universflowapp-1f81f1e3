@@ -1,21 +1,31 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Music2, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
-import { getTopIndexedTracks, prefetchIndexedTrack, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+import { detectCountry, getTopIndexedTracks, prefetchIndexedTrack, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+
+const REGION_LABEL: Record<string, string> = {
+  IN: 'India', US: 'USA', GB: 'UK', CA: 'Canada', AU: 'Australia',
+  PK: 'Pakistan', BD: 'Bangladesh', JP: 'Japan', KR: 'Korea',
+  CN: 'China', SG: 'Singapore', AE: 'UAE', SA: 'Saudi Arabia',
+  FR: 'France', DE: 'Germany', ES: 'Spain', RU: 'Russia',
+  MX: 'Mexico', BR: 'Brazil',
+};
 
 const GlobalTopTracksSection = () => {
   const [tracks, setTracks] = useState<IndexedTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const { playSong, currentSong, isPlaying } = usePlayer();
+  const country = useMemo(() => detectCountry(), []);
+  const regionLabel = country && REGION_LABEL[country] ? `Top 30 in ${REGION_LABEL[country]}` : 'Global Top 30';
 
   useEffect(() => {
     let cancelled = false;
 
     const loadTopTracks = async () => {
       try {
-        const data = await getTopIndexedTracks(30);
+        const data = await getTopIndexedTracks(30, country);
         if (!cancelled) {
           setTracks(data);
         }
@@ -78,7 +88,7 @@ const GlobalTopTracksSection = () => {
       <section className="space-y-3">
         <div className="flex items-center gap-2 px-1">
           <Radio className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">Global Top 30</h2>
+          <h2 className="text-sm font-bold text-foreground">{regionLabel}</h2>
         </div>
         <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
           {Array.from({ length: 6 }).map((_, index) => (
@@ -100,7 +110,7 @@ const GlobalTopTracksSection = () => {
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Radio className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">Global Top 30</h2>
+          <h2 className="text-sm font-bold text-foreground">{regionLabel}</h2>
         </div>
       </div>
 
