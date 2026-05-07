@@ -18,7 +18,13 @@ import {
   type SongHistoryEntry,
 } from '@/lib/songHistory';
 
-type SearchSource = 'all' | 'indexer';
+type SearchSource = 'originals' | 'all';
+
+// Patterns that mark a track as a spammy non-original (karaoke / sped-up TikTok edits / 8D / covers / lyrics videos).
+const SPAM_PATTERN = /\b(karaoke|nightcore|sped[\s-]?up|slowed|reverb|8d\s*audio|cover\s+by|cover\s+version|tribute|guitar\s+cover|piano\s+cover|instrumental|backing\s+track|made\s+famous|in\s+the\s+style\s+of|tutorial|lesson|reaction|lyrics?\s+video|with\s+lyrics|remix\s+by\s+dj)\b/i;
+
+const isOriginalTrack = (t: { title: string; artist: string }) =>
+  !SPAM_PATTERN.test(t.title || '') && !SPAM_PATTERN.test(t.artist || '');
 
 const Search = () => {
   const [query, setQuery] = useState('');
