@@ -261,7 +261,7 @@ const Home = () => {
                       song={currentSong}
                       isPlaying={isPlaying}
                       onToggle={() => { triggerHaptic('selection'); togglePlay(); }}
-                      onOpen={() => navigate('/player')}
+                      onOpen={() => { triggerHaptic('selection'); setExpanded(true); }}
                     />
                   )}
 
