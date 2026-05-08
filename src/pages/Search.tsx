@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search as SearchIcon, Music, X, Globe, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
@@ -27,7 +28,8 @@ const isOriginalTrack = (t: { title: string; artist: string }) =>
   !SPAM_PATTERN.test(t.title || '') && !SPAM_PATTERN.test(t.artist || '');
 
 const Search = () => {
-  const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const [indexedResults, setIndexedResults] = useState<IndexedTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -41,6 +43,13 @@ const Search = () => {
   useEffect(() => {
     if (currentSong) setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
   }, [currentSong?.id]);
+
+  // Sync incoming ?q= deep links (e.g. from Home mood chips)
+  useEffect(() => {
+    const incoming = searchParams.get('q') || '';
+    if (incoming && incoming !== query) setQuery(incoming);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const trimmedQuery = query.trim();
