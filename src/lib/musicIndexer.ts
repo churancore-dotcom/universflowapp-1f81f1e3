@@ -45,6 +45,9 @@ const inFlightResolutions = new Map<string, Promise<ResolveTrackResponse>>();
 const STREAM_CACHE_TTL = 55 * 60 * 1000; // 55 min
 const LS_KEY = 'uf_stream_cache_v1';
 const LS_MAX_ENTRIES = 200;
+const SEARCH_CACHE_TTL = 20 * 60 * 1000;
+const SEARCH_LS_KEY = 'uf_indexed_search_cache_v2';
+const searchCache = new Map<string, { data: IndexedTrack[]; expiresAt: number }>();
 
 function makeCacheKey(artist: string, title: string) {
   return `${artist.toLowerCase().trim()}::${title.toLowerCase().trim()}`;
@@ -63,6 +66,18 @@ function makeCacheKey(artist: string, title: string) {
   } catch { /* ignore corrupted cache */ }
 })();
 
+(function hydrateSearchCache() {
+  try {
+    const raw = localStorage.getItem(SEARCH_LS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, { data: IndexedTrack[]; expiresAt: number }>;
+    const now = Date.now();
+    Object.entries(parsed).forEach(([key, val]) => {
+      if (val?.expiresAt > now && Array.isArray(val.data)) searchCache.set(key, val);
+    });
+  } catch { /* ignore corrupted cache */ }
+})();
+
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 function persistCache() {
   if (persistTimer) return;
@@ -77,6 +92,29 @@ function persistCache() {
       localStorage.setItem(LS_KEY, JSON.stringify(Object.fromEntries(entries)));
     } catch { /* quota errors etc — ignore */ }
   }, 1500);
+}
+
+function persistSearchCache() {
+  try {
+    const entries = Array.from(searchCache.entries())
+      .filter(([, v]) => v.expiresAt > Date.now())
+      .sort((a, b) => b[1].expiresAt - a[1].expiresAt)
+      .slice(0, 80);
+    localStorage.setItem(SEARCH_LS_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch { /* ignore quota */ }
+}
+
+function searchKey(source: string, query: string, limit: number) {
+  return `${source}:${limit}:${query.trim().toLowerCase().replace(/\s+/g, ' ')}`;
+}
+
+async function cachedSearch(key: string, fetcher: () => Promise<IndexedTrack[]>): Promise<IndexedTrack[]> {
+  const hit = searchCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.data;
+  const data = await fetcher();
+  searchCache.set(key, { data, expiresAt: Date.now() + SEARCH_CACHE_TTL });
+  persistSearchCache();
+  return data;
 }
 
 function getCachedStream(key: string): { url: string; meta?: Partial<ResolveTrackResponse> } | null {
