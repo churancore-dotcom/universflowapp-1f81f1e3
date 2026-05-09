@@ -168,6 +168,24 @@ const Auth = () => {
                 />
               </div>
 
+              {!isLogin && (
+                <div className="relative">
+                  <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Username (permanent)"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, '').slice(0, 20))}
+                    className="pl-10 h-12 text-sm rounded-xl border-0"
+                    style={{ background: 'rgba(255, 255, 255, 0.06)' }}
+                    required
+                    minLength={3}
+                    maxLength={20}
+                    autoComplete="username"
+                  />
+                </div>
+              )}
+
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
