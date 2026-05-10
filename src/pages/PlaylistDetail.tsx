@@ -308,6 +308,7 @@ const PlaylistDetail = () => {
                 <Share2 className="w-5 h-5" />
               </motion.button>
             )}
+          </motion.div>
 
           {/* Add songs button for owner */}
           {isOwner && (
