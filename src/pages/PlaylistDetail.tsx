@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, Play, Pause, Shuffle, MoreHorizontal, Music, 
-  Plus, Trash2, Edit2, Lock, Globe, Loader2, ListPlus, Share2 
+  Plus, Trash2, Edit2, Lock, Globe, Loader2, ListPlus, Share2, Copy
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
