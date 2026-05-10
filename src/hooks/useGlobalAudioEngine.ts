@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bypassAudioElement, connectAudioElement, setBands, setReverb, setSpatial, resume, subscribe } from '@/lib/audioEngine';
+import { bypassAudioElement, connectAudioElement, setBands, setReverb, setSpatial, setLateNight, resume, subscribe } from '@/lib/audioEngine';
 import { usePremium } from '@/hooks/usePremium';
 
 const STORAGE_KEY = 'eq_settings';
