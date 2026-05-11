@@ -22,6 +22,7 @@ import {
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { toast } from 'sonner';
 import { hydratePlaylistCoverUrls, loadPlaylistSongs } from '@/lib/streamSongs';
+import PlaylistCover from '@/components/PlaylistCover';
 
 interface Playlist {
   id: string;
