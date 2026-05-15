@@ -194,7 +194,8 @@ public class MediaNotificationService extends Service {
                 coverUrl = safe(intent.getStringExtra("cover"));
                 durationMs = intent.getLongExtra("duration", 0L);
                 isPlaying = intent.getBooleanExtra("isPlaying", false);
-                if (isPlaying) acquireWakeLockIfNeeded(); else releaseWakeLock();
+                if (isPlaying) { acquireWakeLockIfNeeded(); requestAudioFocus(); registerNoisyReceiver(); }
+                else { releaseWakeLock(); }
                 refresh(true);
                 break;
             }
