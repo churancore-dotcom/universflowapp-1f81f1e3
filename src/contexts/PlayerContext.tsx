@@ -149,7 +149,6 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
 // Enforced SERVER-SIDE via the `consume_free_skip` RPC, which uses
 // `api_rate_limits` and `is_premium_user(auth.uid())` so a tampered client
 // cannot bypass it. The local function only asks the server for a decision.
-const FREE_SKIPS_PER_HOUR = 6;
 
 const consumeServerSkip = async (): Promise<{ allowed: boolean; remaining: number | null; premium: boolean }> => {
   try {
