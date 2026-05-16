@@ -73,7 +73,8 @@ const PWAInstallBanner = memo(function PWAInstallBanner() {
   const handleDismiss = () => {
     trigger('impactLight');
     setShowBanner(false);
-    localStorage.setItem('pwa-banner-dismissed', Date.now().toString());
+    // Permanent dismiss — never auto-show this banner again on this device.
+    localStorage.setItem('pwa-banner-dismissed', '1');
   };
 
   // Don't show if already installed
