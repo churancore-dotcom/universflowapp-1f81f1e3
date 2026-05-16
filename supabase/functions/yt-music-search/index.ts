@@ -60,7 +60,18 @@ function meaningfulTokens(query: string) {
     .filter((token) => token.length > 1 && !GENERIC_QUERY_WORDS.has(token));
 }
 
+// A query is "lyric-like" when the user typed a phrase (multiple words / long).
+// In that case we trust YouTube/Invidious ranking — they index captions &
+// descriptions, so the right video may not have the lyric in its title.
+function isLyricQuery(query: string) {
+  const raw = query.trim();
+  const wordCount = raw.split(/\s+/).filter(Boolean).length;
+  return wordCount >= 4 || raw.length >= 25;
+}
+
 function queryMatchesResult(item: any, query: string) {
+  // For lyric-style queries, don't gate on title overlap.
+  if (isLyricQuery(query)) return true;
   const tokens = meaningfulTokens(query);
   if (tokens.length === 0) return true;
   const haystack = normalize(`${String(item?.title || '')} ${String(item?.author || item?.channelTitle || '')}`);
@@ -90,20 +101,33 @@ function scoreResult(item: any, query: string, index: number) {
   const duration = Number(item?.lengthSeconds || item?.duration || 0);
   const published = Number(item?.published || 0);
   const ageDays = published > 0 ? Math.max(0, (Date.now() / 1000 - published) / 86400) : 9999;
+  const lyric = isLyricQuery(query);
   let score = 100 - index;
 
-    if (!queryMatchesResult(item, query)) return -999;
+  if (!queryMatchesResult(item, query)) return -999;
 
   if (q && haystack.includes(q)) score += 80;
-  score += tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 34 : -28), 0);
-  if (/\b(official audio|official video|music video)\b/i.test(String(item?.title || ''))) score += 32;
+  // For lyric queries, reward token hits but never penalize misses
+  // (lyrics rarely appear in titles — trust provider ranking via 100 - index).
+  score += tokens.reduce(
+    (sum, token) => sum + (haystack.includes(token) ? 34 : lyric ? 0 : -28),
+    0,
+  );
+  if (/\b(official audio|official video|music video|lyrics?|lyrical)\b/i.test(String(item?.title || ''))) score += 32;
   if (duration >= 120 && duration <= 360) score += 30;
-  if (ageDays <= 90) score += 55;
-  else if (ageDays <= 365) score += 30;
-  else score -= 80;
+  if (lyric) {
+    // De-emphasize recency for lyric searches — user usually wants a specific song,
+    // which may be old. Without this, old originals get buried under fresh covers.
+    if (ageDays <= 365) score += 15;
+  } else {
+    if (ageDays <= 90) score += 55;
+    else if (ageDays <= 365) score += 30;
+    else score -= 80;
+  }
   if (looksSpammy(item, query)) score -= 180;
   return score;
 }
+
 
 function cleanTitle(raw: string) {
   const cleaned = raw
@@ -194,12 +218,17 @@ serve(async (req) => {
     }
 
     let invResults: SearchResult[] = [];
-    const dateWindows = ['year', '']; // fresh first, then all-time for artists with older catalogs
+    const lyricMode = isLyricQuery(cleanQuery);
+    // For lyric queries skip the "fresh year" window entirely — most lyric
+    // searches target a specific older song.
+    const dateWindows = lyricMode ? [''] : ['year', ''];
+    // Append a query hint so YouTube/Invidious rank the right kind of video.
+    const providerQuery = lyricMode ? `${cleanQuery} lyrics` : `${cleanQuery} music`;
     for (const dateWindow of dateWindows) {
       for (const inst of INVIDIOUS_INSTANCES) {
         try {
           const u = new URL(`${inst}/api/v1/search`);
-          u.searchParams.set('q', `${cleanQuery} music`);
+          u.searchParams.set('q', providerQuery);
           u.searchParams.set('type', 'video');
           u.searchParams.set('sort_by', sortBy);
           if (dateWindow) u.searchParams.set('date', dateWindow);
@@ -269,11 +298,13 @@ serve(async (req) => {
 
     let data: any = null;
     let lastErr = '';
-    for (const freshOnly of [true, false]) {
+    // Lyric queries: skip the freshOnly pass entirely (most lyrics are older songs).
+    const freshOnlyPasses = lyricMode ? [false] : [true, false];
+    for (const freshOnly of freshOnlyPasses) {
       for (const apiKey of apiKeys) {
         const url = new URL('https://www.googleapis.com/youtube/v3/search');
         url.searchParams.set('part', 'snippet');
-        url.searchParams.set('q', `${cleanQuery} music`);
+        url.searchParams.set('q', providerQuery);
         url.searchParams.set('type', 'video');
         url.searchParams.set('videoCategoryId', '10');
         url.searchParams.set('maxResults', String(limit));
