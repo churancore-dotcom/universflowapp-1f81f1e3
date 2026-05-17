@@ -903,17 +903,15 @@ async function pickBestPipedStream(data: Record<string, any>, instance: string) 
       if (am !== bm) return bm - am;
       return (b.bitrate || 0) - (a.bitrate || 0);
     });
-  // Prefer proxyUrl (instance-hosted, CORS-friendly) without probing —
-  // server-side probes fail for googlevideo due to UA/geo, but the
-  // instance proxy works in browsers.
+  // Try each candidate: prefer proxyUrl, then url. Probe each before returning.
   for (const stream of ranked) {
-    const proxied = normalizeUrl(stream?.proxyUrl, instance);
-    if (proxied && !isKnownBrokenStreamUrl(proxied)) return proxied;
-  }
-  // Last resort: probe direct googlevideo URLs
-  for (const stream of ranked) {
-    const url = normalizeUrl(stream?.url, instance);
-    if (url && !isKnownBrokenStreamUrl(url) && await probePlayableStream(url)) return url;
+    const candidates = [
+      normalizeUrl(stream?.proxyUrl, instance),
+      normalizeUrl(stream?.url, instance),
+    ].filter(Boolean) as string[];
+    for (const url of candidates) {
+      if (await probePlayableStream(url)) return url;
+    }
   }
   return undefined;
 }
