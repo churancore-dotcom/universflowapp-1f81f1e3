@@ -92,6 +92,7 @@ const AUDIO_PROXY_ALLOWED_HOST_SUFFIXES = [
   '.piped.video',
   '.piped.privacydev.net',
   '.piped.kavin.rocks',
+  '.kavin.rocks',
   '.piped.tokhmi.xyz',
   '.piped.adminforge.de',
   '.projectsegfau.lt',
@@ -124,6 +125,7 @@ const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 // ── Instance lists (verified working May 2026) ──
 
 const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
   'https://api.piped.private.coffee',
   'https://api.piped.projectsegfau.lt',
   'https://pipedapi.in.projectsegfau.lt',
@@ -937,8 +939,8 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
   const piped = getPipedInstances().filter(isHealthy);
   const inv = getInvidiousInstances().filter(isHealthy);
 
-  // Put the known-reliable instance first
-  const primaryPiped = 'https://api.piped.private.coffee';
+  // Put the known-reliable instance first (pipedapi.kavin.rocks per integration spec)
+  const primaryPiped = 'https://pipedapi.kavin.rocks';
   const orderedPiped = [primaryPiped, ...piped.filter(i => i !== primaryPiped)].slice(0, 4);
 
   // Try primary first (fast path)
