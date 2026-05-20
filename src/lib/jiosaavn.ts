@@ -80,10 +80,10 @@ export async function searchSongsAsTracks(query: string, limit = 30): Promise<In
     .filter((t): t is IndexedTrack => !!t && !!t.title && !!t.artist);
 }
 
-export async function getSongStreamUrl(songId: string) {
+export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: boolean } = {}) {
   // Strip our own prefix if caller forgot
   const id = songId.startsWith('saavn-') ? songId.slice(6) : songId;
-  if (cache.has(id)) return cache.get(id);
+  if (!opts.forceRefresh && cache.has(id)) return cache.get(id);
 
   try {
     const res = await fetch(`${API}/api/songs/${id}`);
