@@ -82,7 +82,14 @@ const Settings = () => {
       && (window as any).Capacitor.isNativePlatform?.() === true;
     if (isNative) {
       const { requestPushPermissionAndRegister } = await import('@/hooks/usePushRegistration');
-      await requestPushPermissionAndRegister();
+      const result = await requestPushPermissionAndRegister();
+      if (result !== 'granted') {
+        setNotifications(false);
+        localStorage.setItem('uf_notifications', 'false');
+        toast.error(result === 'denied' ? 'Notification permission was not granted' : 'Push notifications are not supported on this device');
+      } else {
+        toast.success('Device registered for notifications');
+      }
     } else if ('Notification' in window) {
       Notification.requestPermission();
     }
