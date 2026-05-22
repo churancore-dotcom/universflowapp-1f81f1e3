@@ -22,28 +22,94 @@ const isNative = () =>
 // trigger a manual retry without needing to remount the hook.
 let lastToken: string | null = null;
 let lastDeviceMeta: Record<string, unknown> = {};
+let listenersReady = false;
 
 async function upsertToken(token: string, meta: Record<string, unknown>) {
   const { data } = await supabase.auth.getUser();
   const uid = data?.user?.id;
   if (!uid) return; // will retry on next auth change
-  await supabase.from('device_tokens').upsert(
-    {
-      user_id: uid,
-      token,
-      platform: 'android',
-      device_info: { ...meta, last_seen_at: new Date().toISOString() },
-    },
-    { onConflict: 'token' },
-  );
+  const { error } = await supabase.rpc('register_device_token', {
+    _token: token,
+    _platform: 'android',
+    _device_info: { ...meta, last_seen_at: new Date().toISOString() },
+  });
+  if (error) throw error;
+}
+
+async function collectDeviceMeta() {
+  let deviceMeta: Record<string, unknown> = { ua: navigator.userAgent };
+  try {
+    const { Device } = await import('@capacitor/device');
+    const [info, langCode] = await Promise.all([
+      Device.getInfo(),
+      Device.getLanguageCode().catch(() => ({ value: '' })),
+    ]);
+    deviceMeta = {
+      ...deviceMeta,
+      model: info.model,
+      manufacturer: info.manufacturer,
+      os: info.operatingSystem,
+      os_version: info.osVersion,
+      platform: info.platform,
+      web_view_version: info.webViewVersion,
+      is_virtual: info.isVirtual,
+      language: langCode?.value,
+    };
+  } catch (metaErr) {
+    console.warn('[Push] device meta unavailable', metaErr);
+  }
+  lastDeviceMeta = deviceMeta;
+  return deviceMeta;
+}
+
+async function setupPushListeners(
+  PushNotifications: typeof import('@capacitor/push-notifications').PushNotifications,
+  deviceMeta: Record<string, unknown>,
+) {
+  if (listenersReady) return;
+  listenersReady = true;
+
+  await PushNotifications.addListener('registration', async (t) => {
+    lastToken = t.value;
+    try {
+      await upsertToken(t.value, deviceMeta);
+    } catch (err) {
+      console.warn('[Push] token registration save failed', err);
+    }
+  });
+
+  await PushNotifications.addListener('registrationError', (e) => {
+    console.warn('[Push] registrationError', e);
+  });
+
+  await PushNotifications.addListener('pushNotificationReceived', () => {});
+
+  await PushNotifications.addListener('pushNotificationActionPerformed', async (action) => {
+    const data = (action.notification.data ?? {}) as Record<string, unknown>;
+    const dl = typeof data.deep_link === 'string' ? data.deep_link : '';
+    const title = action.notification.title ?? 'Notification opened';
+    const { toast } = await import('@/hooks/use-toast');
+
+    if (dl.length === 0) {
+      toast({ title, description: 'No deep link attached' });
+      return;
+    }
+    try {
+      if (dl.startsWith('http')) {
+        window.location.href = dl;
+      } else {
+        window.history.pushState({}, '', dl);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    } catch (e) {
+      console.warn('deep link nav failed', e);
+    }
+  });
 }
 
 export function usePushRegistration() {
   useEffect(() => {
     if (!isNative()) return;
-
-    let cancelled = false;
-    let removeListeners: Array<() => void> = [];
 
     // Re-upsert the cached token whenever the user signs in so the device
     // is properly attached to their account even if the FCM token arrived
@@ -65,7 +131,7 @@ export function usePushRegistration() {
         }
         if (perm.receive !== 'granted') {
           console.warn('[Push] permission not granted:', perm.receive);
-          return;
+          return 'denied';
         }
 
         // Android 8+ requires the notification channel to exist before FCM
@@ -82,92 +148,20 @@ export function usePushRegistration() {
           console.warn('[Push] notification channel setup failed', channelError);
         }
 
-        // Capture rich device metadata so admin can identify "whose APK this is"
-        let deviceMeta: Record<string, unknown> = { ua: navigator.userAgent };
-        try {
-          const { Device } = await import('@capacitor/device');
-          const [info, langCode] = await Promise.all([
-            Device.getInfo(),
-            Device.getLanguageCode().catch(() => ({ value: '' })),
-          ]);
-          deviceMeta = {
-            ...deviceMeta,
-            model: info.model,
-            manufacturer: info.manufacturer,
-            os: info.operatingSystem,
-            os_version: info.osVersion,
-            platform: info.platform,
-            web_view_version: info.webViewVersion,
-            is_virtual: info.isVirtual,
-            language: langCode?.value,
-          };
-        } catch (metaErr) {
-          console.warn('[Push] device meta unavailable', metaErr);
-        }
-        lastDeviceMeta = deviceMeta;
-
-        // 2) Register listeners BEFORE calling register().
-        const tokenListener = await PushNotifications.addListener('registration', async (t) => {
-          if (cancelled) return;
-          lastToken = t.value;
-          try {
-            await upsertToken(t.value, deviceMeta);
-          } catch (err) {
-            console.warn('[Push] token upsert failed', err);
-          }
-        });
-        removeListeners.push(() => tokenListener.remove());
-
-        const errListener = await PushNotifications.addListener('registrationError', (e) => {
-          console.warn('[Push] registrationError', e);
-        });
-        removeListeners.push(() => errListener.remove());
-
-        const recvListener = await PushNotifications.addListener(
-          'pushNotificationReceived',
-          () => {},
-        );
-        removeListeners.push(() => recvListener.remove());
-
-        const actionListener = await PushNotifications.addListener(
-          'pushNotificationActionPerformed',
-          async (action) => {
-            const data = (action.notification.data ?? {}) as Record<string, unknown>;
-            const dl = typeof data.deep_link === 'string' ? data.deep_link : '';
-            const title = action.notification.title ?? 'Notification opened';
-            const { toast } = await import('@/hooks/use-toast');
-
-            if (dl.length === 0) {
-              toast({ title, description: 'No deep link attached' });
-              return;
-            }
-            try {
-              if (dl.startsWith('http')) {
-                window.location.href = dl;
-              } else {
-                window.history.pushState({}, '', dl);
-                window.dispatchEvent(new PopStateEvent('popstate'));
-              }
-            } catch (e) {
-              console.warn('deep link nav failed', e);
-            }
-          },
-        );
-        removeListeners.push(() => actionListener.remove());
+        const deviceMeta = await collectDeviceMeta();
+        await setupPushListeners(PushNotifications, deviceMeta);
 
         // 3) Trigger the actual FCM registration.
         await PushNotifications.register();
+        return 'granted';
       } catch (e) {
         console.warn('[Push] setup skipped:', e);
+        return 'denied';
       }
     })();
 
     return () => {
-      cancelled = true;
       try { authSub.subscription.unsubscribe(); } catch { /* ignore */ }
-      removeListeners.forEach((fn) => {
-        try { fn(); } catch {}
-      });
     };
   }, []);
 }
@@ -186,6 +180,21 @@ export async function requestPushPermissionAndRegister(): Promise<'granted' | 'd
       perm = await PushNotifications.requestPermissions();
     }
     if (perm.receive !== 'granted') return 'denied';
+
+    try {
+      await PushNotifications.createChannel({
+        id: 'universflow_default',
+        name: 'UniversFlow Notifications',
+        description: 'Messages and updates from UniversFlow',
+        importance: 5,
+        visibility: 1,
+      });
+    } catch (channelError) {
+      console.warn('[Push] notification channel setup failed', channelError);
+    }
+
+    const deviceMeta = await collectDeviceMeta();
+    await setupPushListeners(PushNotifications, deviceMeta);
     await PushNotifications.register();
     return 'granted';
   } catch (e) {
