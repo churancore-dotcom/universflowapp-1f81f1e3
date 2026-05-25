@@ -971,7 +971,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (videoId) {
                 await playYouTubeFallback(videoId, () => {
                   try { audioRef.current?.dispatchEvent(new Event('ended')); } catch { /* ignore */ }
-                }, seqAtRecoveryStart, activeIdentity);
+                }, seqAtRecoveryStart, activeIdentity ?? undefined);
                 return;
               }
             }
