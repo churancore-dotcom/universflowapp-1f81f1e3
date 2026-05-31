@@ -315,7 +315,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         [song.id]: { songId: song.id, progress: 5, status: 'downloading' }
       }));
 
-      const response = await fetch(song.audio_url, {
+      const response = await robustFetch(song.audio_url, {
         mode: 'cors',
         credentials: 'omit',
         signal: controller.signal,
