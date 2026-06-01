@@ -41,7 +41,7 @@ const ArtistDetail = lazy(() => import("./pages/ArtistDetail"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Support = lazy(() => import("./pages/Support"));
 const Offline = lazy(() => import("./pages/Offline"));
-const PlayWithMate = lazy(() => import("./pages/PlayWithMate"));
+const JamQueue = lazy(() => import("./pages/JamQueue"));
 const AllArtists = lazy(() => import("./pages/AllArtists"));
 const ManageSubscription = lazy(() => import("./pages/ManageSubscription"));
 const Premium = lazy(() => import("./pages/Premium"));
